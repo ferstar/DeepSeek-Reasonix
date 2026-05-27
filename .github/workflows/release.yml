@@ -94,6 +94,25 @@ jobs:
         working-directory: desktop
         run: npm run bundle:node
 
+      # If this repo doesn't have a valid updater signing key, keep the CI
+      # bundle job moving by disabling updater artifact generation only for
+      # this build.
+      - name: Resolve updater build config
+        id: updater
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          first_line=$(printf '%s\n' "$TAURI_SIGNING_PRIVATE_KEY" | sed -n '1p')
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ] && printf '%s' "$first_line" | grep -q '^untrusted comment:'; then
+            echo "config=" >> "$GITHUB_OUTPUT"
+            echo "Updater signing key looks valid; keeping updater artifacts enabled."
+          else
+            echo "config=--config src-tauri/tauri.ci.conf.json" >> "$GITHUB_OUTPUT"
+            echo "Updater signing key is missing or malformed; building without updater artifacts."
+          fi
+
       - name: Verify bundled Node matches host arch (macOS)
         if: startsWith(matrix.target.os, 'macos-')
         working-directory: desktop
@@ -136,7 +155,7 @@ jobs:
           releaseName: Reasonix ${{ steps.tag.outputs.name }}
           releaseDraft: true
           prerelease: false
-          args: --target ${{ matrix.target.tauri }}
+          args: ${{ steps.updater.outputs.config }} --target ${{ matrix.target.tauri }}
 
       - name: Build Tauri bundle (Windows, signed)
         if: matrix.target.os == 'windows-latest' && env.HAS_WIN_CERT == 'true'
@@ -153,7 +172,7 @@ jobs:
           releaseName: Reasonix ${{ steps.tag.outputs.name }}
           releaseDraft: true
           prerelease: false
-          args: --target ${{ matrix.target.tauri }}
+          args: ${{ steps.updater.outputs.config }} --target ${{ matrix.target.tauri }}
 
       - name: Build Tauri bundle (macOS, signed + notarized)
         if: startsWith(matrix.target.os, 'macos-') && env.HAS_APPLE_CERT == 'true'
@@ -174,7 +193,7 @@ jobs:
           releaseName: Reasonix ${{ steps.tag.outputs.name }}
           releaseDraft: true
           prerelease: false
-          args: --target ${{ matrix.target.tauri }}
+          args: ${{ steps.updater.outputs.config }} --target ${{ matrix.target.tauri }}
 
       - name: Verify app Node inherits TCC grants (macOS)
         if: startsWith(matrix.target.os, 'macos-')
