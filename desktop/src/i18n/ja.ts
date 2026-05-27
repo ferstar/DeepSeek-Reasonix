@@ -182,6 +182,8 @@ export const ja = {
       tavily: "Tavily APIキー",
       perplexity: "Perplexity APIキー",
       exa: "Exa APIキー",
+      brave: "Brave APIキー",
+      ollama: "Ollama APIキー",
     },
     baseUrl: "DeepSeek ベースURL",
     baseUrlHint: "プロキシ使用時のみ上書き。空欄 = 公式エンドポイント。再起動が必要です。",
